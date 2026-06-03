@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flame/palette.dart';
 import 'package:flutter/material.dart';
+import 'dart:math';
 
 void main() {
   runApp(GameWidget(game: MyGame()));
@@ -13,7 +14,7 @@ class MyGame extends FlameGame {
   late final SpriteComponent background;
   late final JoystickComponent joystick;
   late final Player player;
-  late final Enemy enemy = Enemy(position: Vector2(200, 200), size: Vector2(82, 35));
+  final random = Random();
 
   @override
   Future<void> onLoad() async {
@@ -31,8 +32,22 @@ class MyGame extends FlameGame {
     player = Player(position: size / 2, size: Vector2(55, 105));
 
     add(background);
+
+    final random = Random();
+    for (int i = 0; i < 10; i++) {
+      add(
+        Enemy(
+          position: Vector2(
+            random.nextDouble() * size.x,
+            random.nextDouble() * size.y,
+          ),
+          size: Vector2(82, 35),
+          targetPlayer: player,
+        ),
+      );
+    }
+
     add(player);
-    add(enemy);
     camera.viewport.add(joystick);
   }
 }
@@ -101,6 +116,16 @@ class Player extends SpriteComponent
   }
 
   @override
+  void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
+    super.onCollision(intersectionPoints, other);
+    if (other is Enemy) {
+      final pushBack = (position - other.position).normalized() * 75;
+      position += pushBack;
+      // health -= 1
+    }
+  }
+
+  @override
   void update(double dt) {
     super.update(dt);
     final currentJoystick = game.joystick;
@@ -114,6 +139,14 @@ class Player extends SpriteComponent
       runAnimationTimer = 0.0;
       updateSpriteForDirection(lastDirection, false);
     }
+
+    for (var enemy in game.children.whereType<Enemy>()) {
+      final distance = position.distanceTo(enemy.position);
+      if (distance < 100) {
+        final pushBack = (position - enemy.position).normalized();
+        position += pushBack * 150 * dt;
+      }
+    }
   }
 }
 
@@ -122,9 +155,16 @@ class Enemy extends SpriteComponent
   late ui.Image spriteSheet;
   double runAnimationTimer = 0.0;
   final double runAnimationSpeed = 0.6;
+  final speed = 50.0;
+  late SpriteComponent targetPlayer;
+  double lastDt = 0.0;
 
-  Enemy({required Vector2 position, required Vector2 size})
-    : super(position: position, size: size);
+  Enemy({
+    required Vector2 position,
+    required Vector2 size,
+    required this.targetPlayer,
+  }) : super(position: position, size: size);
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
@@ -140,6 +180,19 @@ class Enemy extends SpriteComponent
   @override
   void update(double dt) {
     super.update(dt);
+
+    final direction = (targetPlayer.position - position).normalized();
+    position += direction * speed * dt;
+
+    for (var enemy in parent!.children.whereType<Enemy>()) {
+      if (enemy == this) continue;
+      final distance = position.distanceTo(enemy.position);
+      if (distance < 25) {
+        final pushBack = (position - enemy.position).normalized();
+        position += pushBack * speed * 1.5 * dt;
+      }
+    }
+
     runAnimationTimer += dt;
     double col = (runAnimationTimer ~/ runAnimationSpeed) % 2 == 0 ? 0 : 82;
     sprite = Sprite(
@@ -148,4 +201,14 @@ class Enemy extends SpriteComponent
       srcSize: Vector2(82, 35),
     );
   }
+
+  @override
+  void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
+    super.onCollision(intersectionPoints, other);
+    if (other is Enemy || other is Player) {
+      final pushBack = (position - other.position).normalized();
+      position += pushBack * 100;
+    }
+  }
+
 }
