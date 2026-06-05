@@ -8,7 +8,31 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 
 void main() {
-  runApp(GameWidget(game: MyGame()));
+  final game = MyGame();
+  runApp(
+    GameWidget(
+      game: game,
+      overlayBuilderMap: {
+        'GameOverOverlay': (BuildContext context, MyGame game) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Game Over',
+                  style: TextStyle(fontSize: 48, color: Colors.white),
+                ),
+                ElevatedButton(
+                  onPressed: () => game.restartGame(),
+                  child: Text('Restart'),
+                ),
+              ],
+            ),
+          );
+        },
+      },
+    ),
+  );
 }
 
 class MyGame extends FlameGame with HasCollisionDetection {
@@ -17,6 +41,7 @@ class MyGame extends FlameGame with HasCollisionDetection {
   late final Player player;
   late HealthBarDisplay healthBarDisplay;
   final random = Random();
+  final gameoverOverlayIdentifier = 'GameOverOverlay';
 
   @override
   Future<void> onLoad() async {
@@ -50,10 +75,30 @@ class MyGame extends FlameGame with HasCollisionDetection {
         ),
       );
     }
-
     add(player);
     add(FireButton(player: player));
     camera.viewport.add(joystick);
+  }
+
+  void restartGame() {
+    children.whereType<Enemy>().forEach((enemy) => enemy.removeFromParent());
+    children.whereType<Bullet>().forEach((b) => b.removeFromParent());
+    player.position = size / 2;
+    player.health = 5;
+    overlays.remove(gameoverOverlayIdentifier);
+    for (int i = 0; i < 10; i++) {
+      add(
+        Enemy(
+          position: Vector2(
+            random.nextDouble() * size.x,
+            random.nextDouble() * size.y,
+          ),
+          size: Vector2(82, 35),
+          targetPlayer: player,
+        ),
+      );
+      resumeEngine();
+    }
   }
 }
 
@@ -66,6 +111,7 @@ class Player extends SpriteComponent
   int health = 5;
   double damageCooldown = 0.0;
   final double damageCooldownDuration = 0.2;
+  bool isDead = false;
 
   final List<double> rowOffsets = [2.0, 83.0, 196.0, 311.0];
   final List<double> rowHeights = [81.0, 113.0, 115.0, 119.0];
@@ -139,6 +185,9 @@ class Player extends SpriteComponent
     if (enemy != null && damageCooldown <= 0) {
       health -= 1;
       damageCooldown = damageCooldownDuration;
+      if (health <= 0) {
+        isDead = true;
+      }
     }
   }
 
@@ -148,6 +197,12 @@ class Player extends SpriteComponent
 
     if (damageCooldown > 0) {
       damageCooldown -= dt;
+    }
+
+    if (isDead) {
+      isDead = false;
+      game.pauseEngine();
+      game.overlays.toggle(game.gameoverOverlayIdentifier);
     }
 
     final currentJoystick = game.joystick;
