@@ -64,7 +64,7 @@ class MyGame extends FlameGame with HasCollisionDetection {
     add(background);
 
     final random = Random();
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 5; i++) {
       add(
         Enemy(
           position: Vector2(
@@ -92,7 +92,7 @@ class MyGame extends FlameGame with HasCollisionDetection {
     player.health = 5;
     countdownTimer.timer = 120.0;
     overlays.remove(gameoverOverlayIdentifier);
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 5; i++) {
       add(
         Enemy(
           position: Vector2(
