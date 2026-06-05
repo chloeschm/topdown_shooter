@@ -42,6 +42,7 @@ class MyGame extends FlameGame with HasCollisionDetection {
   late HealthBarDisplay healthBarDisplay;
   final random = Random();
   final gameoverOverlayIdentifier = 'GameOverOverlay';
+  late final CountdownTimer countdownTimer;
 
   @override
   Future<void> onLoad() async {
@@ -78,6 +79,10 @@ class MyGame extends FlameGame with HasCollisionDetection {
     add(player);
     add(FireButton(player: player));
     camera.viewport.add(joystick);
+    countdownTimer = CountdownTimer()
+      ..anchor = Anchor.topRight
+      ..position = Vector2(size.x - 20, 20);
+    camera.viewport.add(countdownTimer);
   }
 
   void restartGame() {
@@ -85,6 +90,7 @@ class MyGame extends FlameGame with HasCollisionDetection {
     children.whereType<Bullet>().forEach((b) => b.removeFromParent());
     player.position = size / 2;
     player.health = 5;
+    countdownTimer.timer = 120.0;
     overlays.remove(gameoverOverlayIdentifier);
     for (int i = 0; i < 10; i++) {
       add(
@@ -97,8 +103,8 @@ class MyGame extends FlameGame with HasCollisionDetection {
           targetPlayer: player,
         ),
       );
-      resumeEngine();
     }
+    resumeEngine();
   }
 }
 
@@ -465,5 +471,33 @@ class HealthBarDisplay extends SpriteComponent {
       srcPosition: Vector2(col * 412.0, row * 101.0),
       srcSize: Vector2(412.0, 101.0),
     );
+  }
+}
+
+class CountdownTimer extends TextComponent with HasGameReference<MyGame> {
+  double timer = 120.0;
+
+  CountdownTimer()
+    : super(
+        text: '2:00',
+        textRenderer: TextPaint(
+          style: TextStyle(fontSize: 48, color: Colors.red),
+        ),
+      );
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    timer -= dt;
+    if (timer > 0) {
+      text = Duration(
+        seconds: timer.ceil(),
+      ).toString().split('.').first.substring(2);
+    } else {
+      timer = 0;
+      game.pauseEngine();
+      game.overlays.add(game.gameoverOverlayIdentifier);
+      return;
+    }
   }
 }
